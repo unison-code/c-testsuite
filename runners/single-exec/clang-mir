@@ -1,0 +1,30 @@
+#! /bin/sh
+
+# Generates LLVM MIR files to work as test cases for Unison.
+# TODO: generalize to other targets than Hexagon
+
+set -e
+set -u
+
+t=$1
+
+cat $t
+
+set -x
+
+base=$(basename $t .c)
+
+clang -O2 -target hexagon -emit-llvm -S -o "$base.ll" "$t"
+
+llc_common_flags="-march=hexagon -mcpu=hexagonv5 -unison-mir"
+
+# Speed optimization
+mkdir -p speed
+llc -O3 $llc_common_flags -stop-before phi-node-elimination -o "speed/$base.mir" "$base.ll"
+llc -O3 $llc_common_flags -stop-before funclet-layout -o "speed/$base.asm.mir" "$base.ll"
+
+# Code size optimization
+mkdir -p size
+llc -O2 $llc_common_flags -stop-before phi-node-elimination -o "size/$base.mir" "$base.ll"
+llc -O2 $llc_common_flags -stop-before funclet-layout -o "size/$base.asm.mir" "$base.ll"
+
